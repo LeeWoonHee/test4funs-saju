@@ -11,8 +11,10 @@ import { readTopic } from "./fortune-topics";
 import { interpret } from "./interpretation";
 import { advanceOrder, createOrder, deleteOrder, getOrder, refundOrder, restoreOrder, RETENTION_MS } from "./orders";
 import { issueCheckout, verifyCheckout } from "./tokens";
+import { SAJU_API_PATH } from "@/lib/paths";
 
 const SESSION_COOKIE = "saju_report";
+const PUBLIC_SITE_ORIGIN = "https://test4funs.com";
 const secretBody = z.object({ checkoutToken: z.string().min(16).max(4096) }).strict();
 const restoreBody = z.object({ code: z.string().regex(/^[\w-]{24}$/) }).strict();
 const failure = {
@@ -22,7 +24,7 @@ const failure = {
 
 function cookieHeader(request: Request, session: string, expired = false) {
   const secure = new URL(request.url).protocol === "https:" || Boolean(process.env.DATABASE_URL);
-  return `${SESSION_COOKIE}=${session}; Path=/api; HttpOnly; SameSite=Strict; Max-Age=${expired ? 0 : RETENTION_MS / 1000}${secure ? "; Secure" : ""}`;
+  return `${SESSION_COOKIE}=${session}; Path=${SAJU_API_PATH}; HttpOnly; SameSite=Strict; Max-Age=${expired ? 0 : RETENTION_MS / 1000}${secure ? "; Secure" : ""}`;
 }
 
 function missing() {
@@ -38,7 +40,7 @@ export const api = new Elysia({ prefix: "/api" })
     const origin = request.headers.get("origin");
     const host = request.headers.get("host") ?? url.host;
     if (request.headers.get("sec-fetch-site") === "cross-site" ||
-      (origin && origin !== url.origin && origin !== `${url.protocol}//${host}`)) {
+      (origin && origin !== PUBLIC_SITE_ORIGIN && origin !== url.origin && origin !== `${url.protocol}//${host}`)) {
       return status(403, { error: "이 사이트에서 요청을 다시 보내 주세요." });
     }
     if (Number(request.headers.get("content-length")) > 6000) {

@@ -1,3 +1,5 @@
+import { SAJU_API_PATH } from "./paths";
+
 export class RequestError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -5,7 +7,7 @@ export class RequestError extends Error {
 }
 
 export async function requestJson<T>(path: string, method = "GET", data?: unknown, signal?: AbortSignal): Promise<T> {
-  const response = await fetch("/api" + path, {
+  const response = await fetch(SAJU_API_PATH + path, {
     method,
     signal,
     headers: data === undefined ? undefined : { "content-type": "application/json" },

@@ -28,13 +28,14 @@ after(async () => {
   await rm(temporaryDirectory, { recursive: true, force: true });
 });
 
-function request(path: string, { method, body, cookie, origin }: {
-  method?: string; body?: unknown; cookie?: string; origin?: string;
+function request(path: string, { method, body, cookie, origin, fetchSite }: {
+  method?: string; body?: unknown; cookie?: string; origin?: string; fetchSite?: string;
 } = {}) {
   const headers = new Headers();
   if (body !== undefined) headers.set("content-type", "application/json");
   if (cookie) headers.set("cookie", cookie);
   if (origin) headers.set("origin", origin);
+  if (fetchSite) headers.set("sec-fetch-site", fetchSite);
   return api.fetch(new Request("http://localhost/api" + path, {
     method: method ?? (body === undefined ? "GET" : "POST"), headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -46,6 +47,7 @@ function sessionCookie(response: Response) {
   assert.ok(value);
   assert.match(value, /HttpOnly/);
   assert.match(value, /SameSite=Strict/);
+  assert.match(value, /(?:^|; )Path=\/saju\/api;/);
   return value.split(";")[0];
 }
 
@@ -66,6 +68,14 @@ async function readFortune(body: FortuneRequest) {
   assert.equal(response.headers.get("cache-control"), "private, no-store");
   return fortuneResponseSchema.parse(await response.json());
 }
+
+test("Test4Funs의 프록시 요청을 허용하고 다른 사이트의 POST를 차단한다", async () => {
+  const origin = "https://test4funs.com";
+  const body = standardBirth;
+  assert.equal((await request("/reading", { body, origin, fetchSite: "same-origin" })).status, 200);
+  assert.equal((await request("/reading", { body, origin: "https://example.test", fetchSite: "same-origin" })).status, 403);
+  assert.equal((await request("/reading", { body, origin, fetchSite: "cross-site" })).status, 403);
+});
 
 test("KASI 2020 역서의 양력·음력 윤달·일진 사례를 대조한다", async () => {
   const solar = await read();
