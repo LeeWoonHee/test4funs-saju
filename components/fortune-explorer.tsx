@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, Compass, Info } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ChevronDown } from "lucide-react";
 import { BirthFields, readBirthFields } from "@/components/birth-fields";
 import { Button } from "@/components/ui/button";
+import { Select, SelectItem } from "@/components/ui/select";
 import type { Birth } from "@/lib/contracts";
 import { DAEUN_PERIOD_MONTHS, FORTUNE_LABELS, PERSONAL_TOPICS, type FortuneRequest, type FortuneResponse, type FortuneText, type PersonalTopic } from "@/lib/fortune-contracts";
 import { messageFor, requestJson } from "@/lib/http";
@@ -18,19 +19,16 @@ function isPersonalTopic(option: Option): option is PersonalTopic {
 function Notes({ notes }: { notes: string[] }) {
   if (!notes.length) return null;
   return (
-    <div className="mt-5 flex items-start gap-2.5 rounded-[10px] border border-frost bg-paper-white px-4 py-3 text-xs leading-6 text-smoke sm:text-sm">
-      <Info size={15} aria-hidden className="mt-1 shrink-0 text-slate" />
-      <ul className="list-disc space-y-1 pl-4">
-        {notes.map((note) => <li key={note}>{note}</li>)}
-      </ul>
-    </div>
+    <ul className="mt-5 list-disc space-y-1 pl-4 text-xs leading-6 text-smoke sm:text-sm">
+      {notes.map((note) => <li key={note}>{note}</li>)}
+    </ul>
   );
 }
 
 function TopicContent({ content }: { content: FortuneText }) {
   return (
     <>
-      <p className="mt-3 rounded-[10px] border-l-4 border-midnight-navy bg-paper-white px-4 py-3 text-[15px] leading-[1.7] font-medium text-ink-black">
+      <p className="mt-3 text-base leading-[1.7] font-medium text-ink-black">
         {content.summary}
       </p>
       <div className="mt-5 flex flex-col divide-y divide-frost">
@@ -65,7 +63,7 @@ function Periods({ result }: { result: Cycles }) {
     <>
       {firstStart && (
         <>
-          <p className="mt-3 rounded-[10px] border-l-4 border-midnight-navy bg-paper-white px-4 py-3 text-[15px] leading-[1.7] text-ink-black">
+          <p className="mt-3 text-base leading-[1.7] text-ink-black">
             첫 대운은 <strong className="font-semibold text-midnight-navy">{rangeText(firstStart)}</strong> 무렵에 시작해요.
           </p>
           {possibleDelayMonths > 0 && (
@@ -151,24 +149,17 @@ function ResultContent({ result }: { result: FortuneResponse }) {
   }
 }
 
-function FortuneSelect({ label, name, defaultValue, options }: {
-  label: string; name: string; defaultValue: string; options: [string, string][];
+function FortuneSelect({ label, name, defaultValue, placeholder, options }: {
+  label: string; name: string; defaultValue?: string; placeholder?: string; options: [string, string][];
 }) {
+  const id = useId();
   return (
-    <label className="flex min-w-0 flex-col gap-2 text-sm font-medium text-ink-black">
-      {label}
-      <span className="relative">
-        <select
-          name={name}
-          defaultValue={defaultValue}
-          required
-          className="h-12 w-full cursor-pointer appearance-none rounded-[4px] border border-slate/45 bg-paper-white py-2 pr-10 pl-3.5 text-[15px] font-normal text-ink-black transition-colors hover:border-ink-black/60 focus:border-midnight-navy focus:outline-none"
-        >
-          {options.map(([value, text]) => <option key={value} value={value} disabled={!value}>{text}</option>)}
-        </select>
-        <ChevronDown aria-hidden size={16} className="pointer-events-none absolute top-4 right-3 text-smoke" />
-      </span>
-    </label>
+    <div className="flex min-w-0 flex-col gap-2">
+      <label htmlFor={id} className="text-sm font-medium text-ink-black">{label}</label>
+      <Select id={id} name={name} defaultValue={defaultValue} placeholder={placeholder} required>
+        {options.map(([value, text]) => <SelectItem key={value} value={value}>{text}</SelectItem>)}
+      </Select>
+    </div>
   );
 }
 
@@ -230,28 +221,21 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
     <section
       id="fortunes"
       aria-labelledby="fortunes-title"
-      className="mt-6 scroll-mt-24 rounded-[10px] bg-paper-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.1)] sm:p-8"
+      className="mt-5 scroll-mt-24 rounded-3xl border border-saju-line bg-paper-white p-5 sm:p-7"
     >
-      <div className="flex items-center gap-3.5">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-linen-cream text-midnight-navy">
-          <Compass aria-hidden size={20} strokeWidth={1.8} />
-        </span>
-        <div>
-          <h2 id="fortunes-title" className="text-2xl font-semibold tracking-[-0.02em] text-ink-black sm:text-[1.75rem]">
-            주제별 운세
-          </h2>
-          <p className="mt-0.5 text-sm text-smoke">궁금한 주제를 선택하면 내 사주로 풀이해 드려요.</p>
-        </div>
-      </div>
+      <h2 id="fortunes-title" className="text-[1.65rem] font-bold tracking-[-0.045em] text-ink-black">
+        주제별 운세
+      </h2>
+      <p className="mt-1 text-sm leading-6 text-smoke">궁금한 주제를 선택하면 내 사주로 풀이해 드려요.</p>
 
-      <div role="group" aria-label="운세 주제" className="mt-6 flex flex-wrap gap-2">
+      <div role="group" aria-label="운세 주제" className="mt-4 flex flex-wrap gap-2">
         {(Object.keys(FORTUNE_LABELS) as Option[]).map((option) => (
           <Button
             key={option}
             aria-pressed={selected === option}
-            variant={selected === option ? "secondary" : "outline"}
+            variant="outline"
             onClick={() => choose(option)}
-            className={`min-h-10 px-4 text-sm font-medium ${selected === option ? "" : "border-frost hover:border-ink-black/50"}`}
+            className="px-3.5 font-medium aria-pressed:border-saju-accent aria-pressed:bg-saju-accent-light aria-pressed:text-saju-accent-hover"
           >
             {FORTUNE_LABELS[option]}
           </Button>
@@ -262,7 +246,7 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
         <form
           key={selected}
           onSubmit={submit}
-          className="mt-6 space-y-5 rounded-[10px] border border-frost bg-soft-vellum p-5 sm:p-6"
+          className="mt-5 space-y-5 rounded-2xl bg-soft-vellum p-4 sm:p-5"
         >
           {selected === "compatibility" ? (
             <>
@@ -279,8 +263,8 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
               <FortuneSelect
                 label="대운 계산 기준"
                 name="directionBasis"
-                defaultValue=""
-                options={[["", "기준 선택"], ["male", "남성 기준"], ["female", "여성 기준"]]}
+                placeholder="기준 선택"
+                options={[["male", "남성 기준"], ["female", "여성 기준"]]}
               />
               <p className="text-sm leading-6 text-smoke">
                 전통 명리에서 대운을 어느 방향으로 계산할지 정할 때만 써요.
@@ -294,7 +278,7 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
               options={[["international", "만 나이 (생일 기준)"], ["counting", "세는나이 (출생 연도 기준)"]]}
             />
           )}
-          <Button type="submit" variant="primary" disabled={busy} className="w-full sm:w-auto">
+          <Button type="submit" variant="secondary" disabled={busy} className="w-full sm:w-auto">
             {FORTUNE_LABELS[selected]} 보기
           </Button>
         </form>
@@ -313,12 +297,11 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
       )}
 
       {response && selected && (
-        <div className="mt-6 rounded-[10px] border border-frost bg-soft-vellum p-5 sm:p-6">
-          <p className="text-[11px] font-semibold tracking-[0.045em] text-smoke">선택한 운세</p>
+        <div className="mt-5 border-t border-saju-line pt-5">
           <h3
             ref={resultHeading}
             tabIndex={-1}
-            className="mt-1 scroll-mt-24 text-2xl font-semibold tracking-[-0.02em] text-ink-black outline-none"
+            className="scroll-mt-24 text-xl font-semibold tracking-[-0.025em] text-ink-black outline-none"
           >
             {FORTUNE_LABELS[selected]} 결과
           </h3>

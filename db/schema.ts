@@ -1,7 +1,7 @@
 import { integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { statuses, type Chart, type Interpretation } from "@/lib/contracts";
+import type { Chart, Interpretation } from "@/lib/contracts";
 
-export const orderStatus = pgEnum("report_order_status", statuses);
+export const orderStatus = pgEnum("report_order_status", ["queued", "generating", "failed", "ready", "refund_pending", "refunded", "deleted"]);
 const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
 export const orders = pgTable("report_orders", {

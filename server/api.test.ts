@@ -1,54 +1,21 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { after, before, test } from "node:test";
-import { setTimeout as wait } from "node:timers/promises";
-import { countElements, type Birth, type Order, type Reading } from "@/lib/contracts";
+import { test } from "node:test";
+import { countElements, type Birth, type Reading } from "@/lib/contracts";
 import { PERSONAL_TOPICS, fortuneResponseSchema, type FortuneRequest } from "@/lib/fortune-contracts";
+import { api } from "./api";
 import { readNine } from "./fortune-calendar";
 
-let temporaryDirectory: string;
-let api: typeof import("./api").api;
-
-before(async () => {
-  temporaryDirectory = await mkdtemp(join(tmpdir(), "saju-qa-"));
-  delete process.env.DATABASE_URL;
-  delete process.env.SAJU_SECRET;
-  process.env.SAJU_DATA_DIR = temporaryDirectory;
-  process.env.SAJU_SIMULATE_FAILURE = "1";
-  ({ api } = await import("./api"));
-});
-
-after(async () => {
-  if (!temporaryDirectory) return;
-  const { getDatabase } = await import("@/db/client");
-  const { $client } = await getDatabase();
-  if ("close" in $client) await $client.close();
-  await rm(temporaryDirectory, { recursive: true, force: true });
-});
-
-function request(path: string, { method, body, cookie, origin, fetchSite }: {
-  method?: string; body?: unknown; cookie?: string; origin?: string; fetchSite?: string;
+function request(path: string, { method, body, origin, fetchSite }: {
+  method?: string; body?: unknown; origin?: string; fetchSite?: string;
 } = {}) {
   const headers = new Headers();
   if (body !== undefined) headers.set("content-type", "application/json");
-  if (cookie) headers.set("cookie", cookie);
   if (origin) headers.set("origin", origin);
   if (fetchSite) headers.set("sec-fetch-site", fetchSite);
   return api.fetch(new Request("http://localhost/api" + path, {
     method: method ?? (body === undefined ? "GET" : "POST"), headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   }));
-}
-
-function sessionCookie(response: Response) {
-  const value = response.headers.get("set-cookie");
-  assert.ok(value);
-  assert.match(value, /HttpOnly/);
-  assert.match(value, /SameSite=Strict/);
-  assert.match(value, /(?:^|; )Path=\/saju\/api;/);
-  return value.split(";")[0];
 }
 
 const standardBirth: Birth = {
@@ -59,6 +26,7 @@ async function read(data: Partial<Birth> = {}) {
   const response = await request("/reading", { body: { ...standardBirth, ...data } });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.equal(response.headers.get("set-cookie"), null);
   return await response.json() as Reading;
 }
 
@@ -236,60 +204,21 @@ test("아홉수는 한국 날짜의 생일 경계와 선택한 나이 기준을 
   assert.equal(result.ageStandard, "counting");
 });
 
-test("동일 주문, 생성 재시도, 복구, 모의 환불과 삭제의 접근 권한을 검증한다", async () => {
-  const reading = await read({ unknownTime: false, time: "15:35" });
-  const checkout = { checkoutToken: reading.checkoutToken };
-  assert.equal((await request("/orders", { body: checkout, origin: "https://example.test" })).status, 403);
-  assert.equal((await request("/orders", { body: { checkoutToken: checkout.checkoutToken + "x" } })).status, 400);
+test("무료 풀이는 주문 토큰을 반환하지 않고 리포트 API는 종료된다", async () => {
+  const reading = await read();
+  assert.deepEqual(Object.keys(reading).sort(), ["chart", "interpretation"]);
 
-  const responses = await Promise.all([
-    request("/orders", { body: checkout }),
-    request("/orders", { body: checkout }),
-  ]);
-  assert.deepEqual(responses.map(({ status }) => status), [200, 200]);
-  const cookie = sessionCookie(responses[0]);
-  assert.equal(cookie, sessionCookie(responses[1]));
-  const [first, second] = await Promise.all(responses.map((response) => response.json()));
-  assert.equal(first.recoveryCode, second.recoveryCode);
-  assert.equal(first.order.price, 4900);
-  assert.equal(first.order.status, "queued");
-  assert.equal((await request("/orders/current")).status, 404);
-
-  const process = (retry: boolean, activeCookie = cookie) => request("/orders/current/process", { cookie: activeCookie, body: { retry } });
-  const failed = await process(false);
-  assert.equal(failed.status, 200);
-  const pendingRetry = await failed.json() as Order;
-  assert.equal(pendingRetry.status, "failed");
-  assert.equal(pendingRetry.canRetry, true);
-  assert.equal(pendingRetry.report, null);
-
-  const [retry] = await Promise.all([process(true), process(true)]);
-  assert.equal(retry.status, 200);
-  const current = await request("/orders/current", { cookie });
-  const ready = await current.json() as Order;
-  assert.equal(ready.status, "ready");
-  assert.ok(ready.report);
-  assert.ok(ready.report.referencedPillars.every(({ key, korean }) => reading.chart.pillars[key]?.korean === korean));
-  assert.match(ready.report.sections[2].body, /끝까지 들어줘서 고마웠어/);
-  assert.match(ready.report.sections[3].body, /태어난 날의 첫 글자 ‘병’/);
-
-  const restored = await request("/orders/restore", { body: { code: first.recoveryCode } });
-  assert.equal(restored.status, 200);
-  const restoredCookie = sessionCookie(restored);
-  assert.notEqual(restoredCookie, cookie);
-  assert.equal((await request("/orders/current", { cookie })).status, 404);
-  assert.equal((await request("/orders", { body: checkout })).status, 409);
-
-  const refund = await request("/orders/current/refund", { cookie: restoredCookie, method: "POST" });
-  assert.equal(refund.status, 200);
-  assert.deepEqual(await refund.json(), { status: "refund_pending", price: 4900, report: null, canRetry: false });
-  await wait(2050);
-  const refunded = await process(false, restoredCookie);
-  assert.equal((await refunded.json() as Order).status, "refunded");
-
-  const deleted = await request("/orders/current", { cookie: restoredCookie, method: "DELETE" });
-  assert.equal(deleted.status, 200);
-  assert.match(deleted.headers.get("set-cookie") ?? "", /Max-Age=0/);
-  assert.equal((await request("/orders/restore", { body: { code: first.recoveryCode } })).status, 404);
-  assert.equal((await process(true, restoredCookie)).status, 404);
+  const retiredRoutes = [
+    ["/orders", "POST"],
+    ["/orders/restore", "POST"],
+    ["/orders/current", "GET"],
+    ["/orders/current/process", "POST"],
+    ["/orders/current/refund", "POST"],
+    ["/orders/current", "DELETE"],
+  ] as const;
+  for (const [path, method] of retiredRoutes) {
+    const response = await request(path, { method });
+    assert.equal(response.status, 404, `${method} ${path}`);
+    assert.equal(response.headers.get("set-cookie"), null);
+  }
 });

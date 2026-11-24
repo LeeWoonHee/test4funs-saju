@@ -1,23 +1,23 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ChevronDown, Clock3 } from "lucide-react";
+import { Clock3 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectItem } from "@/components/ui/select";
 import type { Birth } from "@/lib/contracts";
 
-const fieldClass =
-  "h-12 w-full min-w-0 rounded-lg border border-slate/45 bg-soft-vellum px-2.5 text-[15px] font-normal text-ink-black transition-colors hover:border-ink-black/60 focus:border-midnight-navy focus:bg-paper-white disabled:opacity-50 sm:px-3.5";
 const labelClass = "text-sm font-medium text-ink-black";
 
 function DateSelect({ label, name, options, suffix }: { label: string; name: string; options: number[]; suffix: string }) {
   return (
-    <label className={`relative flex min-w-0 flex-col ${name === "year" ? "flex-[1.35] sm:flex-1" : "flex-1"}`}>
-      <span className="sr-only">{label}</span>
-      <select name={name} required defaultValue="" className={`${fieldClass} cursor-pointer appearance-none pr-6 invalid:text-smoke sm:pr-9`}>
-        <option value="" disabled>{label}</option>
-        {options.map((value) => <option key={value} value={value}>{value}{suffix}</option>)}
-      </select>
-      <ChevronDown aria-hidden size={15} className="pointer-events-none absolute top-4 right-2 text-smoke sm:right-3" />
-    </label>
+    <div className={`min-w-0 ${name === "year" ? "flex-[1.5] sm:flex-[1.15]" : "flex-1"}`}>
+      <Select name={name} label={label} placeholder={label} required>
+        {options.map((value) => <SelectItem key={value} value={String(value)}>{value}{suffix}</SelectItem>)}
+      </Select>
+    </div>
   );
 }
 
@@ -35,36 +35,45 @@ export function readBirthFields(form: HTMLFormElement): Birth {
 export function BirthFields({ firstYear, lastYear, includeTime = true }: { firstYear: number; lastYear: number; includeTime?: boolean }) {
   const [calendar, setCalendar] = useState<Birth["calendar"]>("solar");
   const [unknownTime, setUnknownTime] = useState(false);
-  const [time, setTime] = useState("");
+  const reduceMotion = useReducedMotion();
+  const selectionOffset = calendar === "lunar" ? "100%" : "0%";
+  const calendarId = useId();
+  const leapMonthId = useId();
+  const unknownTimeId = useId();
   const timeId = useId();
   const hintId = useId();
   const years = Array.from({ length: lastYear - firstYear + 1 }, (_, index) => lastYear - index);
   return (
     <>
       <fieldset>
-        <legend className={labelClass}>달력 기준</legend>
-        <div className="mt-2 flex gap-2">
-          {([["solar", "양력"], ["lunar", "음력"]] as const).map(([value, text]) => (
-            <label key={value} className="relative flex min-w-0 flex-1 cursor-pointer">
-              <input
-                className="peer sr-only"
-                type="radio"
-                name="calendar"
-                value={value}
-                checked={calendar === value}
-                onChange={() => setCalendar(value)}
-              />
-              <span className="flex min-h-11 w-full items-center justify-center rounded-lg border border-slate/40 bg-soft-vellum px-3 text-sm font-medium text-graphite transition-colors peer-checked:border-saju-accent peer-checked:bg-saju-accent-light peer-checked:text-saju-accent-hover peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-midnight-navy">
-                {text}
-              </span>
-            </label>
-          ))}
-        </div>
+        <legend id={calendarId} className={labelClass}>달력 기준</legend>
+        <RadioGroup
+          name="calendar"
+          aria-labelledby={calendarId}
+          value={calendar}
+          onValueChange={(value) => setCalendar(value === "lunar" ? "lunar" : "solar")}
+          orientation="horizontal"
+          className="mt-2"
+        >
+          <motion.span
+            aria-hidden
+            data-slot="calendar-selection"
+            initial={false}
+            animate={reduceMotion ? undefined : { x: selectionOffset }}
+            style={reduceMotion ? { x: selectionOffset } : undefined}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%_-_0.25rem)] rounded-full border border-saju-accent/45 bg-saju-accent-light shadow-sm shadow-saju-accent/10"
+          />
+          <RadioGroupItem value="solar">양력</RadioGroupItem>
+          <RadioGroupItem value="lunar">음력</RadioGroupItem>
+        </RadioGroup>
         {calendar === "lunar" && (
-          <label className="mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-graphite">
-            <input name="leapMonth" type="checkbox" className="size-4 accent-midnight-navy" />
-            윤달인 경우 선택해 주세요
-          </label>
+          <div className="mt-1 flex w-fit items-center gap-2 rounded-full bg-saju-canvas px-2.5 has-[[data-state=checked]]:bg-saju-accent-light motion-safe:animate-saju-reveal motion-safe:transition-colors">
+            <Checkbox id={leapMonthId} name="leapMonth" />
+            <label htmlFor={leapMonthId} className="flex min-h-11 cursor-pointer items-center text-sm text-graphite">
+              윤달인 경우 선택해 주세요
+            </label>
+          </div>
         )}
       </fieldset>
 
@@ -85,34 +94,20 @@ export function BirthFields({ firstYear, lastYear, includeTime = true }: { first
             ) : (
               <label htmlFor={timeId} className={labelClass}>태어난 시각</label>
             )}
-            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-graphite">
-              <input
-                name="unknownTime"
-                type="checkbox"
-                checked={unknownTime}
-                onChange={(event) => setUnknownTime(event.target.checked)}
-                className="size-4 accent-midnight-navy"
-              />
-              시각 모름
-            </label>
+            <div className="flex items-center gap-2 rounded-full bg-saju-canvas px-2.5 has-[[data-state=checked]]:bg-saju-accent-light motion-safe:transition-colors">
+              <Checkbox id={unknownTimeId} name="unknownTime" checked={unknownTime} onCheckedChange={(checked) => setUnknownTime(checked === true)} />
+              <label htmlFor={unknownTimeId} className="flex min-h-11 cursor-pointer items-center text-sm text-graphite">
+                시각 모름
+              </label>
+            </div>
           </div>
-          {unknownTime ? (
-            <p className="flex min-h-12 items-center rounded-lg border border-dashed border-slate/50 bg-soft-vellum px-3.5 text-sm text-smoke">
+          <div hidden={unknownTime} className="motion-safe:animate-saju-reveal">
+            <Input id={timeId} name="time" type="time" required disabled={unknownTime} aria-describedby={hintId} />
+          </div>
+          {unknownTime && (
+            <p className="flex min-h-12 items-center rounded-2xl border border-saju-line bg-saju-canvas px-3.5 py-2 text-sm text-saju-muted motion-safe:animate-saju-reveal">
               태어난 시각 없이도 확인할 수 있는 부분을 풀이해 드려요.
             </p>
-          ) : (
-            <div className="relative">
-              <input
-                id={timeId}
-                name="time"
-                type="time"
-                value={time}
-                required
-                aria-describedby={hintId}
-                onChange={(event) => setTime(event.target.value)}
-                className={`${fieldClass} block`}
-              />
-            </div>
           )}
           <p id={hintId} className="mt-2 flex items-center gap-1.5 text-xs text-smoke">
             <Clock3 size={14} aria-hidden className="shrink-0 text-slate" /> 한국 표준시 기준

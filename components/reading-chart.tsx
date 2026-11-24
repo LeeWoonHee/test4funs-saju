@@ -6,7 +6,7 @@ export function ReadingChart({ chart }: { chart: Chart }) {
   const confirmed = Object.values(counts).reduce((total, count) => total + count, 0);
 
   return (
-    <details className="group mt-6 rounded-[10px] border border-frost bg-soft-vellum px-4 sm:px-5">
+    <details className="group mt-6 rounded-2xl border border-frost bg-soft-vellum px-4 sm:px-5">
       <summary className="flex min-h-13 cursor-pointer list-none items-center justify-between gap-3 py-3.5 text-sm font-semibold text-ink-black hover:text-midnight-navy [&::-webkit-details-marker]:hidden">
         <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           사주 글자와 오행 보기
@@ -20,8 +20,8 @@ export function ReadingChart({ chart }: { chart: Chart }) {
             const pillar = chart.pillars[key];
             const isConfirmed = pillar && !chart.uncertainFields.includes(key);
             return (
-              <div key={key} className="flex min-w-[90px] flex-1 flex-col overflow-hidden rounded-[10px] border border-frost bg-paper-white text-center">
-                <dt className="bg-midnight-navy px-2 py-1.5 text-xs font-medium text-paper-white">
+              <div key={key} className="flex min-w-[90px] flex-1 flex-col overflow-hidden rounded-xl border border-frost bg-paper-white text-center">
+                <dt className="bg-saju-accent-light px-2 py-1.5 text-xs font-semibold text-saju-accent-hover">
                   {PILLAR_PERIODS[key]}
                 </dt>
                 {isConfirmed ? (

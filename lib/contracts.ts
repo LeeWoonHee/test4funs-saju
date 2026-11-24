@@ -1,12 +1,7 @@
 import { z } from "zod";
 
 export const FIRST_YEAR = 1989;
-export const REPORT_PRICE = 4900;
-export const REPORT_PRICE_LABEL = "4,900원";
-export const REPORT_TITLE = "관계의 결";
-export const REPORT_TOPIC = "relationships";
 export const PILLAR_KEYS = ["year", "month", "day", "hour"] as const;
-export const PILLAR_LABELS = { year: "연주", month: "월주", day: "일주", hour: "시주" };
 export const PILLAR_PERIODS = { year: "태어난 해", month: "태어난 달", day: "태어난 날", hour: "태어난 시각" };
 export const ELEMENTS = ["목", "화", "토", "금", "수"] as const;
 export const ELEMENT_DETAILS = {
@@ -82,20 +77,10 @@ export const interpretationSchema = z.object({
 export const readingSchema = z.object({
   chart: chartSchema,
   interpretation: interpretationSchema,
-  checkoutToken: z.string(),
-});
-export const statuses = ["queued", "generating", "failed", "ready", "refund_pending", "refunded", "deleted"] as const;
-export const orderSchema = z.object({
-  status: z.enum(statuses),
-  price: z.literal(REPORT_PRICE),
-  report: interpretationSchema.nullable(),
-  canRetry: z.boolean(),
 });
 export const errorSchema = z.object({ error: z.string() });
-export const checkoutResponseSchema = z.object({ order: orderSchema, recoveryCode: z.string() });
 
 export type Birth = z.infer<typeof birthSchema>;
 export type Chart = z.infer<typeof chartSchema>;
 export type Interpretation = z.infer<typeof interpretationSchema>;
 export type Reading = z.infer<typeof readingSchema>;
-export type Order = z.infer<typeof orderSchema>;
