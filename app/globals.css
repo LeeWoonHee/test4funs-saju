@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  /* Typography */
+  --font-sans: "Noto Sans KR Variable", "Apple SD Gothic Neo", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Noto Serif CJK KR", "Song Myung", "AppleMyungjo", "Batang", Georgia, serif;
+
+  /* Sandland Sleep (DESIGN (2).md) Color Tokens */
+  --color-midnight-navy: #1a365d;
+  --color-sunlit-yellow: #fae467;
+  --color-linen-cream: #f2ede8;
+  --color-paper-white: #ffffff;
+  --color-soft-vellum: #faf8f6;
+  --color-graphite: #3d3d3d;
+  --color-smoke: #666666;
+  --color-slate: #726f6d;
+  --color-charcoal: #191923;
+  --color-frost: #e6e6e6;
+  --color-ink-black: #000000;
+  --color-primary-hover: #f6db47;
+  --color-primary-active: #edd035;
+
+  --color-saju-canvas: #f8fafc;
+  --color-saju-surface: #ffffff;
+  --color-saju-line: #e2e8f0;
+  --color-saju-ink: #0f172a;
+  --color-saju-muted: #475569;
+  --color-saju-accent: #7c3f66;
+  --color-saju-accent-hover: #663452;
+  --color-saju-accent-light: #f7eef4;
+
+  /* Semantic Aliases */
+  --color-paper: #f2ede8;
+  --color-card: #ffffff;
+  --color-ink: #000000;
+  --color-muted: #666666;
+  --color-line: #e6e6e6;
+
+  /* Shadows (10% black opacity, whisper-soft) */
+  --shadow-card: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
+  --shadow-elevated: 0 4px 20px 0 rgba(0, 0, 0, 0.1);
+  --shadow-subtle: 0 1px 0 0 rgba(0, 0, 0, 0.13);
+}
+
+@layer base {
+  body {
+    @apply bg-linen-cream font-sans text-ink-black antialiased;
+    word-break: keep-all;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-midnight-navy);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: #fae467;
+    color: #000000;
+  }
+}
+
+/* Keep shared reading controls on the same palette within the homepage. */
+.saju-home {
+  --color-midnight-navy: var(--color-saju-accent);
+  --color-sunlit-yellow: var(--color-saju-accent-light);
+  --color-primary-hover: #efdeea;
+  --color-primary-active: #e6cadc;
+  --color-linen-cream: var(--color-saju-canvas);
+  --color-paper-white: var(--color-saju-surface);
+  --color-soft-vellum: var(--color-saju-canvas);
+  --color-graphite: #334155;
+  --color-smoke: var(--color-saju-muted);
+  --color-slate: #64748b;
+  --color-charcoal: var(--color-saju-ink);
+  --color-frost: var(--color-saju-line);
+  --color-ink-black: var(--color-saju-ink);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
