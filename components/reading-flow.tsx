@@ -7,7 +7,7 @@ import { BirthFields, readBirthFields } from "@/components/birth-fields";
 import { FortuneExplorer } from "@/components/fortune-explorer";
 import { ReadingChart } from "@/components/reading-chart";
 import { Button } from "@/components/ui/button";
-import { ELEMENT_DETAILS, type Birth, type Reading } from "@/lib/contracts";
+import { countElements, ELEMENT_DETAILS, type Birth, type Reading } from "@/lib/contracts";
 import { messageFor, requestJson } from "@/lib/http";
 
 function Result({ reading, resultRef }: { reading: Reading; resultRef: React.RefObject<HTMLElement | null> }) {
@@ -15,6 +15,7 @@ function Result({ reading, resultRef }: { reading: Reading; resultRef: React.Ref
   const { chart, interpretation } = reading;
   const { day } = chart.pillars;
   const dayElement = ELEMENT_DETAILS[day.stemElement];
+  const confirmed = Object.values(countElements(chart)).reduce((total, count) => total + count, 0);
 
   return (
     <motion.section
@@ -42,10 +43,16 @@ function Result({ reading, resultRef }: { reading: Reading; resultRef: React.Ref
         <p className="text-lg leading-[1.65] font-medium text-ink-black">
           {interpretation.summary}
         </p>
-        <p className="mt-2 text-sm leading-6 text-smoke">
-          태어난 날의 첫 글자 <strong className="font-semibold text-midnight-navy">{day.korean[0]}({day.hanja[0]})</strong>에서
-          출발한 풀이예요. 이 글자는 오행에서 {dayElement.name}({dayElement.hanja})에 해당해요.
-        </p>
+        <dl className="mt-3 flex flex-col gap-2 rounded-2xl bg-saju-canvas px-3.5 py-3 text-sm leading-6 text-smoke">
+          <div className="flex flex-col sm:flex-row sm:gap-2">
+            <dt className="shrink-0 font-semibold text-saju-accent-hover sm:w-16">풀이 기준</dt>
+            <dd>태어난 날의 첫 글자인 <strong className="font-semibold text-ink-black">{day.korean[0]}({day.hanja[0]}) · {dayElement.name}</strong>에서 위 성향을 읽었어요.</dd>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:gap-2">
+            <dt className="shrink-0 font-semibold text-saju-accent-hover sm:w-16">오행 개수</dt>
+            <dd>확인된 {confirmed}글자에서 글자마다 오행을 하나씩 셌어요. 가장 많은 오행은 풀이 기준 글자의 오행과 다를 수 있어요.</dd>
+          </div>
+        </dl>
       </div>
 
       <div className="mt-5 flex flex-col divide-y divide-frost">
@@ -67,12 +74,14 @@ function Result({ reading, resultRef }: { reading: Reading; resultRef: React.Ref
 }
 
 export function ReadingFlow({ firstYear, lastYear, aside }: { firstYear: number; lastYear: number; aside: ReactNode }) {
-  const [result, setResult] = useState<{ reading: Reading; birth: Birth } | null>(null);
+  const [result, setResult] = useState<{ reading: Reading; birth: Birth; revision: number } | null>(null);
   const reading = result?.reading;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const resultRef = useRef<HTMLElement>(null);
+  const pending = useRef<AbortController>(null);
 
+  useEffect(() => () => pending.current?.abort(), []);
   useEffect(() => {
     if (!reading || !resultRef.current) return;
     resultRef.current.focus({ preventScroll: true });
@@ -81,17 +90,24 @@ export function ReadingFlow({ firstYear, lastYear, aside }: { firstYear: number;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending.current) return;
     const birth = readBirthFields(event.currentTarget);
+    const controller = new AbortController();
+    pending.current = controller;
     setError("");
     setBusy(true);
-    setResult(null);
     try {
-      const reading = await requestJson<Reading>("/reading", "POST", birth);
-      setResult({ reading, birth });
+      const reading = await requestJson<Reading>("/reading", "POST", birth, controller.signal);
+      if (!controller.signal.aborted) {
+        setResult((previous) => ({ reading, birth, revision: (previous?.revision ?? 0) + 1 }));
+      }
     } catch (failure) {
-      setError(messageFor(failure));
+      if (!controller.signal.aborted) setError(messageFor(failure));
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) {
+        pending.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -133,9 +149,14 @@ export function ReadingFlow({ firstYear, lastYear, aside }: { firstYear: number;
         </section>
 
         {result && (
-          <div className="w-full">
+          <div className="min-w-0 w-full">
+            {(busy || error) && (
+              <p role="status" className="mb-2 rounded-xl bg-saju-accent-light px-4 py-2 text-sm leading-6 text-saju-accent-hover">
+                {busy ? "다시 계산하는 동안 이전 풀이를 보여드려요." : "새 풀이를 불러오지 못해 이전 풀이를 보여드려요."}
+              </p>
+            )}
             <Result reading={result.reading} resultRef={resultRef} />
-            <FortuneExplorer birth={result.birth} firstYear={firstYear} lastYear={lastYear} />
+            <FortuneExplorer key={result.revision} birth={result.birth} firstYear={firstYear} lastYear={lastYear} />
           </div>
         )}
       </div>

@@ -4,13 +4,13 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useId, useRef, useState, type ComponentProps, type FormEvent } from "react";
 
-type SelectProps = Pick<ComponentProps<typeof SelectPrimitive.Root>, "name" | "required" | "defaultValue" | "disabled" | "children"> & {
+type SelectProps = Pick<ComponentProps<typeof SelectPrimitive.Root>, "name" | "required" | "defaultValue" | "disabled" | "children" | "value" | "onValueChange"> & {
   id?: string;
   label?: string;
   placeholder?: string;
 };
 
-export function Select({ id, label, placeholder, children, ...props }: SelectProps) {
+export function Select({ id, label, placeholder, children, onValueChange, ...props }: SelectProps) {
   const trigger = useRef<HTMLButtonElement>(null);
   const errorId = useId();
   const [invalid, setInvalid] = useState(false);
@@ -25,7 +25,7 @@ export function Select({ id, label, placeholder, children, ...props }: SelectPro
 
   return (
     <div className="min-w-0" onInvalid={handleInvalid}>
-      <SelectPrimitive.Root {...props} onValueChange={() => setInvalid(false)}>
+      <SelectPrimitive.Root {...props} onValueChange={(value) => { setInvalid(false); onValueChange?.(value); }}>
         <SelectPrimitive.Trigger
           ref={trigger}
           id={id}

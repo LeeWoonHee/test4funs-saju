@@ -11,10 +11,21 @@ import type { Birth } from "@/lib/contracts";
 
 const labelClass = "text-sm font-medium text-ink-black";
 
-function DateSelect({ label, name, options, suffix }: { label: string; name: string; options: number[]; suffix: string }) {
+type DateFields = { calendar: Birth["calendar"]; year: string; month: string; day: string };
+
+function lastDay({ calendar, year, month }: DateFields) {
+  if (calendar === "lunar") return 30;
+  if (!month) return 31;
+  return new Date(Date.UTC(year ? Number(year) : 2000, Number(month), 0)).getUTCDate();
+}
+
+function DateSelect({ label, name, options, suffix, value, onValueChange }: {
+  label: string; name: "year" | "month" | "day"; options: number[]; suffix: string;
+  value: string; onValueChange: (value: string) => void;
+}) {
   return (
     <div className={`min-w-0 ${name === "year" ? "flex-[1.5] sm:flex-[1.15]" : "flex-1"}`}>
-      <Select name={name} label={label} placeholder={label} required>
+      <Select name={name} label={label} placeholder={label} value={value} onValueChange={onValueChange} required>
         {options.map((value) => <SelectItem key={value} value={String(value)}>{value}{suffix}</SelectItem>)}
       </Select>
     </div>
@@ -33,7 +44,10 @@ export function readBirthFields(form: HTMLFormElement): Birth {
 }
 
 export function BirthFields({ firstYear, lastYear, includeTime = true }: { firstYear: number; lastYear: number; includeTime?: boolean }) {
-  const [calendar, setCalendar] = useState<Birth["calendar"]>("solar");
+  const [date, setDate] = useState<DateFields & { dayNeedsSelection: boolean }>({
+    calendar: "solar", year: "", month: "", day: "", dayNeedsSelection: false,
+  });
+  const { calendar, year, month, day, dayNeedsSelection } = date;
   const [unknownTime, setUnknownTime] = useState(false);
   const reduceMotion = useReducedMotion();
   const selectionOffset = calendar === "lunar" ? "100%" : "0%";
@@ -43,6 +57,15 @@ export function BirthFields({ firstYear, lastYear, includeTime = true }: { first
   const timeId = useId();
   const hintId = useId();
   const years = Array.from({ length: lastYear - firstYear + 1 }, (_, index) => lastYear - index);
+
+  function changeDate(fields: Partial<DateFields>) {
+    setDate((current) => {
+      const next = { ...current, ...fields };
+      if (Number(next.day) > lastDay(next)) return { ...next, day: "", dayNeedsSelection: true };
+      return { ...next, dayNeedsSelection: !next.day && current.dayNeedsSelection };
+    });
+  }
+
   return (
     <>
       <fieldset>
@@ -51,7 +74,7 @@ export function BirthFields({ firstYear, lastYear, includeTime = true }: { first
           name="calendar"
           aria-labelledby={calendarId}
           value={calendar}
-          onValueChange={(value) => setCalendar(value === "lunar" ? "lunar" : "solar")}
+          onValueChange={(value) => changeDate({ calendar: value === "lunar" ? "lunar" : "solar" })}
           orientation="horizontal"
           className="mt-2"
         >
@@ -80,10 +103,13 @@ export function BirthFields({ firstYear, lastYear, includeTime = true }: { first
       <fieldset>
         <legend className={labelClass}>생년월일</legend>
         <div className="mt-2 flex gap-1.5 sm:gap-2.5">
-          <DateSelect name="year" label="연도" options={years} suffix="년" />
-          <DateSelect name="month" label="월" options={Array.from({ length: 12 }, (_, i) => i + 1)} suffix="월" />
-          <DateSelect name="day" label="일" options={Array.from({ length: 31 }, (_, i) => i + 1)} suffix="일" />
+          <DateSelect name="year" label="연도" options={years} suffix="년" value={year} onValueChange={(value) => changeDate({ year: value })} />
+          <DateSelect name="month" label="월" options={Array.from({ length: 12 }, (_, i) => i + 1)} suffix="월" value={month} onValueChange={(value) => changeDate({ month: value })} />
+          <DateSelect name="day" label="일" options={Array.from({ length: lastDay(date) }, (_, i) => i + 1)} suffix="일" value={day} onValueChange={(value) => changeDate({ day: value })} />
         </div>
+        {dayNeedsSelection && (
+          <p role="status" className="mt-2 text-xs leading-5 text-saju-accent-hover">선택한 달에 맞춰 일을 다시 선택해 주세요.</p>
+        )}
       </fieldset>
 
       {includeTime && (

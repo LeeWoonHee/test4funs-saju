@@ -72,7 +72,7 @@ export function buildBasicReading(chart: Chart): Pick<Interpretation, "summary" 
     const labels = leading.map((element) => `${ELEMENT_DETAILS[element].name} ${highest}개`).join(", ");
     sections.push({
       title: "가장 자주 나온 오행",
-      body: `확인된 ${confirmed}글자에서 ${labels}가 가장 많이 나왔어요. 이 숫자는 사주 글자에 각 오행이 나타난 횟수예요.`,
+      body: `확인된 ${confirmed}글자에서 ${labels}가 가장 많이 나왔어요.`,
     });
   }
 

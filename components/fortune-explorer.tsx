@@ -170,15 +170,19 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
   const [busy, setBusy] = useState(false);
   const pending = useRef<AbortController>(null);
   const resultHeading = useRef<HTMLHeadingElement>(null);
+  const resultOption = response?.kind === "topic" ? response.topic : response?.kind;
 
   useEffect(() => () => pending.current?.abort(), []);
-  useEffect(() => { if (response) resultHeading.current?.focus(); }, [response]);
+  useEffect(() => {
+    if (!response || !resultHeading.current) return;
+    resultHeading.current.focus({ preventScroll: true });
+    resultHeading.current.scrollIntoView({ block: "start" });
+  }, [response]);
 
   async function load(request: FortuneRequest) {
     pending.current?.abort();
     const controller = new AbortController();
     pending.current = controller;
-    setResponse(null);
     setError("");
     setBusy(true);
     try {
@@ -192,12 +196,14 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
   }
 
   function choose(option: Option) {
-    pending.current?.abort();
     setSelected(option);
-    setResponse(null);
+    if (isPersonalTopic(option)) {
+      void load({ kind: "topic", topic: option, birth });
+      return;
+    }
+    pending.current?.abort();
     setError("");
     setBusy(false);
-    if (isPersonalTopic(option)) void load({ kind: "topic", topic: option, birth });
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -220,6 +226,7 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
   return (
     <section
       id="fortunes"
+      tabIndex={-1}
       aria-labelledby="fortunes-title"
       className="mt-5 scroll-mt-24 rounded-3xl border border-saju-line bg-paper-white p-5 sm:p-7"
     >
@@ -228,7 +235,7 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
       </h2>
       <p className="mt-1 text-sm leading-6 text-smoke">궁금한 주제를 선택하면 내 사주로 풀이해 드려요.</p>
 
-      <div role="group" aria-label="운세 주제" className="mt-4 flex flex-wrap gap-2">
+      <div role="group" aria-label="운세 주제" className="-mx-1 mt-3 flex gap-2 overflow-x-auto overscroll-x-contain p-1 sm:mx-0 sm:mt-4 sm:flex-wrap sm:overflow-visible sm:p-0">
         {(Object.keys(FORTUNE_LABELS) as Option[]).map((option) => (
           <Button
             key={option}
@@ -286,7 +293,7 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
 
       {busy && (
         <p role="status" className="mt-5 rounded-[10px] bg-soft-vellum px-4 py-3 text-sm text-smoke">
-          풀이를 계산하고 있어요...
+          {response ? "새 풀이를 계산하고 있어요. 아래에 이전 풀이를 보여드려요." : "풀이를 계산하고 있어요..."}
         </p>
       )}
 
@@ -296,14 +303,17 @@ export function FortuneExplorer({ birth, firstYear, lastYear }: { birth: Birth; 
         </p>
       )}
 
-      {response && selected && (
+      {response && resultOption && (
         <div className="mt-5 border-t border-saju-line pt-5">
+          {!busy && (error || resultOption !== selected) && (
+            <p className="mb-2 text-sm text-smoke">아래는 이전에 확인한 풀이예요.</p>
+          )}
           <h3
             ref={resultHeading}
             tabIndex={-1}
             className="scroll-mt-24 text-xl font-semibold tracking-[-0.025em] text-ink-black outline-none"
           >
-            {FORTUNE_LABELS[selected]} 결과
+            {FORTUNE_LABELS[resultOption]} 결과
           </h3>
           <ResultContent result={response} />
         </div>
